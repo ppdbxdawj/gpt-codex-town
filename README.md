@@ -40,7 +40,7 @@ It is a personal, local-first companion. It does not run tasks, send messages, o
 
 ### Mini city mode
 
-Mini mode is a full-window 3D town for a compact view of recently readable local work, not a count of an entire account. It keeps only building bubbles and floating expand, theme, and motion controls: the workshop separates confirmed running work from work waiting for you, active automations keep their own named homes, and gifts show pending review. Unknown state is shown separately; disconnected data is marked as awaiting an update, never as zero. Cloud snapshots remain non-real-time. Clicking a building opens a small status card with an original-task link when one is available; it does not automatically open the full review view.
+Mini mode is a cream-pastel dream island for a compact view of recently readable local work, not a count of an entire account. It keeps two core reminders: confirmed work in progress or waiting for you, and results pending review. Automation homes reveal their full name and status on hover or keyboard focus. Clicking the workshop or result building opens a short paginated card to browse all current work or pending results. Unknown state remains separate, disconnected data awaits an update, and cloud snapshots remain non-real-time.
 
 ![City-only mini mode](docs/images/mini-city.png)
 

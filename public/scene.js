@@ -19,6 +19,7 @@ export function createManorScene({ container, onSelect = () => {} }) {
   if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
   const camera = new THREE.OrthographicCamera(-14, 14, 11, -11, .1, 100);
   const home = new THREE.Vector3(17, 19, 24);
+  const compactHome = new THREE.Vector3(17, 13.5, 25);
   camera.position.copy(home);
   camera.zoom = 1.12;
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -79,11 +80,55 @@ export function createManorScene({ container, onSelect = () => {} }) {
   function tube(points,r,mat,parent,closed=false){const curve=new THREE.CatmullRomCurve3(points,closed);return mesh(new THREE.TubeGeometry(curve,Math.max(24,points.length*6),r,6,closed),mat,parent);}
   function star(p,r,mat,x,y,z){const s=new THREE.Shape();for(let i=0;i<10;i++){const a=i*Math.PI/5+Math.PI/2,R=i%2?r*.46:r;const X=Math.cos(a)*R,Y=Math.sin(a)*R;i?s.lineTo(X,Y):s.moveTo(X,Y);}s.closePath();const g=new THREE.ExtrudeGeometry(s,{depth:.09,bevelEnabled:true,bevelSize:.035,bevelThickness:.035,bevelSegments:1});return mesh(g,mat,p,x,y,z);}
   const land=new THREE.Group();scene.add(land);
-  box(land,23,1.1,17,palette.cream,0,-.65,0,1);
-  box(land,22.6,.4,16.6,palette.blush,0,-.09,0,.65);
-  box(land,22.3,.22,16.3,palette.grass,0,.2,0,.55);
+  const manorPlinth=[
+    box(land,23,1.1,17,palette.cream,0,-.65,0,1),
+    box(land,22.6,.4,16.6,palette.blush,0,-.09,0,.65),
+    box(land,22.3,.22,16.3,palette.grass,0,.2,0,.55),
+  ];
   // An inset miniature landscape, framed like a collectible diorama.
   const floor=mesh(new THREE.PlaneGeometry(200,200),material('#eadde7'),scene,0,-1.25,0,false);floor.rotation.x=-Math.PI/2;
+  // Mini mode trades the rectangular product plinth for a soft floating island.
+  // The city itself stays in `land`, so every building, path, owner, and real-state
+  // animation keeps its existing coordinates and interaction contract.
+  const dreamIsland=new THREE.Group();dreamIsland.visible=false;scene.add(dreamIsland);
+  const islandShape=new THREE.Shape();
+  for(let i=0;i<18;i++){
+    const a=i/18*Math.PI*2;
+    const wobble=1+Math.sin(i*2.17)*.055+Math.cos(i*4.1)*.035;
+    const x=Math.cos(a)*12.7*wobble,z=Math.sin(a)*9.55*wobble;
+    i?islandShape.lineTo(x,z):islandShape.moveTo(x,z);
+  }
+  islandShape.closePath();
+  const dreamGrass=mesh(new THREE.ShapeGeometry(islandShape),palette.grass,dreamIsland,0,.305,0,false);dreamGrass.rotation.x=-Math.PI/2;
+  const dreamLayers=[];
+  function dreamLayer(top,bottom,height,y,mat,rotation=0){
+    const layer=mesh(new THREE.CylinderGeometry(top,bottom,height,18,1,false),mat,dreamIsland,0,y,0,false);
+    layer.scale.z=.74;layer.rotation.y=rotation;dreamLayers.push(layer);return layer;
+  }
+  const dreamCream=material('#ffe0ba'),dreamPink=material('#efa5bd'),dreamLavender=material('#b494df'),dreamCore=material('#ab8ad2');
+  dreamLayer(12.45,11.25,1.15,-.25,dreamCream,.12);
+  dreamLayer(11.18,8.85,1.55,-1.6,dreamPink,-.07);
+  dreamLayer(8.78,5.25,2,-3.375,dreamLavender,.18);
+  dreamLayer(5.18,.82,2.8,-5.775,dreamCore,-.12);
+  const dreamClouds=[],dreamStars=[];
+  function dreamCloud(x,y,z,scale=1){
+    const cloud=new THREE.Group();cloud.position.set(x,y,z);cloud.scale.setScalar(scale);dreamIsland.add(cloud);
+    for(const [cx,cy,cz,r] of [[0,0,0,.48],[-.42,-.03,.08,.34],[.42,.04,.02,.38],[.08,.18,-.18,.28]])ball(cloud,r,palette.white,cx,cy,cz,[1.45,.9,1]);
+    dreamClouds.push({cloud,baseY:y,phase:dreamClouds.length*.8});
+  }
+  function dreamlet(x,y,z,scale=1){
+    const g=new THREE.Group();g.position.set(x,y,z);g.scale.setScalar(scale);dreamIsland.add(g);
+    cyl(g,.95,.58,.34,palette.cream,0,0,0,12);cyl(g,.72,.94,.42,palette.purple,0,-.35,0,12);ball(g,.83,palette.grass,0,.22,0,[1.18,.22,.88]);
+  }
+  // Large, offset cloud banks give the low silhouette a soft floating cradle
+  // without covering the city or the tapered island point.
+  dreamCloud(-14.2,-1.45,2.7,2.15);dreamCloud(14,-1.2,3.8,1.95);
+  dreamCloud(-11.2,-.78,6.2,1.18);dreamCloud(10.8,-.6,6.5,1.05);
+  dreamlet(-10.8,-.3,4.8,.5);dreamlet(10.7,.15,-3.9,.43);
+  for(let i=0;i<18;i++){
+    const a=i*2.4;const sparkle=star(dreamIsland,.045+(i%3)*.025,palette.window,Math.cos(a)*(8.8+i%3*.4),.72+(i%4)*.55,Math.sin(a)*(6.8+i%4*.32));
+    sparkle.rotation.x=Math.PI/2;dreamStars.push({sparkle,phase:i*.7});
+  }
   cyl(land,2.7,2.7,.07,material('#f3dfcd'),0,.37,.6,64);
   cyl(land,2.23,2.23,.08,material('#f8ecdc'),0,.42,.6,64);
   for(let i=0;i<20;i++){const a=i/20*Math.PI*2;box(land,.35,.05,.24,palette.pink,Math.cos(a)*2.5,.43,.6+Math.sin(a)*2.5,.03);}
@@ -234,8 +279,17 @@ export function createManorScene({ container, onSelect = () => {} }) {
     el.setAttribute('aria-label',`查看定时任务：${home.item.title}`);el.title=home.item.title;
     el.style.cssText='position:absolute;transform:translate(-50%,-100%);width:126px;border:1px solid rgba(139,109,140,.25);border-radius:10px;background:rgba(255,250,241,.96);color:#685568;padding:4px 7px;cursor:pointer;font:500 11px/1.3 "PingFang SC",sans-serif;box-shadow:0 2px 10px #5a355a12;white-space:normal;z-index:2;text-align:center;';
     el.addEventListener('click',()=>{selectedId=home.item.id;onSelect({kind:'schedule',id:home.item.id});renderFrame(true);});container.append(el);
+    const tooltip=document.createElement('span');tooltip.className='manor-schedule-tooltip';tooltip.hidden=true;tooltip.setAttribute('aria-hidden','true');
+    tooltip.style.cssText='position:absolute;left:50%;bottom:calc(100% + 7px);width:154px;padding:6px 8px;border-radius:9px;color:#685568;background:rgba(255,253,248,.97);box-shadow:0 5px 16px rgba(76,48,70,.18);font:500 10px/1.35 "PingFang SC",sans-serif;text-align:left;white-space:normal;transform:translateX(-50%);pointer-events:none;';
+    const reveal=()=>{if(!compactMode)return;tooltip.hidden=false;tooltip.style.marginLeft='0px';requestAnimationFrame(()=>{
+      if(tooltip.hidden||!compactMode)return;
+      const box=tooltip.getBoundingClientRect(),bounds=container.getBoundingClientRect();
+      const shift=box.left<bounds.left+5?bounds.left+5-box.left:box.right>bounds.right-5?bounds.right-5-box.right:0;
+      tooltip.style.marginLeft=`${shift}px`;
+    });};const conceal=()=>{tooltip.hidden=true;tooltip.style.marginLeft='0px';};
+    el.addEventListener('mouseenter',reveal);el.addEventListener('mouseleave',conceal);el.addEventListener('focus',reveal);el.addEventListener('blur',conceal);
     if(night){el.style.background='rgba(51,46,74,.96)';el.style.color='#f6e6ee';el.style.borderColor='#7b6a9977';}
-    home.label=el;labels.push({el,b:home,h:2.2,view:'manor'});
+    home.label=el;home.tooltip=tooltip;labels.push({el,b:home,h:2.2,view:'manor'});
   }
   function scheduleHome(item,lot){
     const g=new THREE.Group();g.position.copy(schedulePosition(lot));g.scale.setScalar(.72);land.add(g);
@@ -291,6 +345,7 @@ export function createManorScene({ container, onSelect = () => {} }) {
       home.fullLabel=`${item.title}${unread>0?` · 🎁${unread}`:''}`;
       home.miniLabel=`${item.title} · ${item.statusText}${unread>0?` · 🎁${unread}`:''}`;
       home.label.textContent=home.fullLabel;
+      home.tooltip.textContent=`${item.title}\n${item.statusText}${unread>0?` · 待看 ${unread} 份`:''}`;
       home.label.title=`${item.title} · ${item.statusText} · ${item.sourceText}`;home.label.setAttribute('aria-label',`查看定时任务：${item.title}，${item.statusText}，${item.sourceText}${unread>0?`，待看 ${unread} 份`:''}`);
     }
     scheduleLots.clear();for(const [id,lot] of lots)scheduleLots.set(id,lot);
@@ -318,10 +373,26 @@ export function createManorScene({ container, onSelect = () => {} }) {
       home.miniLabel=`${compactStatus} · ${home.item.title}`;
     }
     for(const l of labels){
-      const show=compactMode&&(l.b.id==='codex'||l.b.id==='inbox'||l.b.item);
+      if(l.b.item){
+        const el=l.el;
+        l.b.isMiniMarker=compactMode;
+        if(compactMode){
+          el.classList.remove('manor-building-label','manor-mini-bubble');el.classList.add('manor-schedule-marker');
+          el.replaceChildren(document.createTextNode('✦'),l.b.tooltip);
+          el.style.cssText='position:absolute;transform:translate(-50%,-100%);display:grid;place-items:center;width:22px;height:22px;padding:0;border:1px solid rgba(255,255,255,.9);border-radius:50%;color:#755a85;background:rgba(255,253,248,.95);box-shadow:0 3px 10px rgba(76,48,70,.2);cursor:pointer;font:700 12px/1 sans-serif;z-index:4;';
+          // A five-second state refresh may rebuild the marker while it is being
+          // inspected. Keep its hover/focus tooltip open instead of blinking it away.
+        }else{
+          el.classList.add('manor-building-label');el.classList.remove('manor-schedule-marker');
+          el.replaceChildren(document.createTextNode(l.b.fullLabel||l.b.item.title));
+          el.style.cssText='position:absolute;transform:translate(-50%,-100%);width:126px;border:1px solid rgba(139,109,140,.25);border-radius:10px;background:rgba(255,250,241,.96);color:#685568;padding:4px 7px;cursor:pointer;font:500 11px/1.3 "PingFang SC",sans-serif;box-shadow:0 2px 10px #5a355a12;white-space:normal;z-index:2;text-align:center;';
+          l.b.tooltip.hidden=true;
+        }
+        continue;
+      }
+      const show=compactMode&&(l.b.id==='codex'||l.b.id==='inbox');
       l.el.classList.toggle('manor-mini-bubble',show);
       if(show)l.el.textContent=l.b.miniLabel||l.b.title;
-      else if(l.b.item)l.el.textContent=l.b.fullLabel||l.b.item.title;
       else l.el.textContent=l.b.label||l.b.title;
     }
   }
@@ -504,18 +575,21 @@ export function createManorScene({ container, onSelect = () => {} }) {
     renderFrame(true);
   }
   function setPaused(v){paused=!!v;renderFrame(true);}
+  function setDreamMode(enabled){
+    manorPlinth.forEach(layer=>{layer.visible=!enabled;});floor.visible=!enabled;dreamIsland.visible=enabled;
+  }
   function setCompactMode(next){
     const enabled=!!next;
     if(enabled!==compactMode){
       if(enabled){
         compactCamera={position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom};
-        transition=null;camera.position.copy(home);controls.target.set(0,1,0);camera.zoom=.9;
+        transition=null;camera.position.copy(compactHome);controls.target.set(0,-1,0);camera.zoom=.9;
       }else if(compactCamera){
         camera.position.copy(compactCamera.position);controls.target.copy(compactCamera.target);camera.zoom=compactCamera.zoom;compactCamera=null;
       }else camera.zoom=manorZoom;
       camera.updateProjectionMatrix();controls.update();
     }
-    compactMode=enabled;container.dataset.compactMode=compactMode?'true':'false';refreshCompactBubbles(compactRefreshFailed);dirty=true;renderFrame(true);
+    compactMode=enabled;setDreamMode(compactMode);container.dataset.compactMode=compactMode?'true':'false';refreshCompactBubbles(compactRefreshFailed);dirty=true;renderFrame(true);
   }
   function setCompactRefreshFailed(next){compactRefreshFailed=!!next;refreshCompactBubbles(compactRefreshFailed);dirty=true;renderFrame(true);}
   function setVisible(v){surfaceVisible=!!v;last=performance.now();if(surfaceVisible){dirty=true;renderFrame(true);}}
@@ -528,10 +602,20 @@ export function createManorScene({ container, onSelect = () => {} }) {
   function setView(nextView){applyView(nextView,false);}
   function focusAutomation(id){
     const scheduleHome=scheduleHomes.get(id);if(!scheduleHome)return false;
-    selectedId=id;transition={from:controls.target.clone(),to:scheduleHome.g.position.clone().add(new THREE.Vector3(0,.8,0)),t:0};dirty=true;renderFrame(true);return true;
+    selectedId=id;
+    const target=compactMode
+      ? new THREE.Vector3(scheduleHome.g.position.x*.18,-.8,scheduleHome.g.position.z*.18)
+      : scheduleHome.g.position.clone().add(new THREE.Vector3(0,.8,0));
+    transition={from:controls.target.clone(),to:target,t:0};dirty=true;renderFrame(true);return true;
   }
   function focusBuilding(id){if(scheduleHomes.has(id))return focusAutomation(id);const p=destination.get(id);if(!p)return false;if(view!=='manor')setView('manor');selectedId=id;transition={from:controls.target.clone(),to:p.clone().add(new THREE.Vector3(0,1,0)),t:0};renderFrame(true);return true;}
-  function resetView(){applyView(view,true);}
+  function resetView(){
+    if(compactMode){
+      selectedId=null;transition=null;camera.position.copy(compactHome);camera.zoom=.9;controls.target.set(0,-1,0);
+      camera.updateProjectionMatrix();controls.update();dirty=true;renderFrame(true);return;
+    }
+    applyView(view,true);
+  }
   const vector=new THREE.Vector3();
   function updateLabels(){
     const w=container.clientWidth,h=container.clientHeight;
@@ -543,9 +627,9 @@ export function createManorScene({ container, onSelect = () => {} }) {
       const inView=l.view===view&&l.b.g.visible!==false&&vector.z<1&&vector.x>-.99&&vector.x<.99&&vector.y>-.99&&vector.y<.99;
       const labelId=l.b.id||l.b.item?.id;
       l.el.style.outline=selectedId===labelId?'2px solid #b998cc':'none';
-      if(!inView){l.el.classList.add('is-projected-hidden');continue;}
+      if(!inView){l.el.classList.add('is-projected-hidden');if(l.b.isMiniMarker)l.el.style.display='none';continue;}
       // Make the element measurable before placing it; its visibility prevents a visible jump.
-      l.el.classList.remove('is-projected-hidden');l.el.style.display='block';l.el.style.visibility='hidden';
+      l.el.classList.remove('is-projected-hidden');l.el.style.display=l.b.isMiniMarker?'grid':'block';l.el.style.visibility='hidden';
       visible.push({l,x:(vector.x+1)*w/2,y:(-vector.y+1)*h/2,id:labelId});
     }
     const priority=entry=>compactMode?(entry.id==='codex'?6:entry.id==='inbox'?5:entry.l.b.item?4:1):(entry.l.b.item?4:entry.id==='owner'?3:entry.id==='inbox'||entry.id==='warehouse'?2:1);
@@ -603,6 +687,10 @@ export function createManorScene({ container, onSelect = () => {} }) {
     motion.workLights.forEach(({light,phase,baseY})=>{const pulse=workshopRunning?(Math.sin(logical*4+phase*6.28)+1)/2:0;light.position.y=baseY+pulse*.38;light.scale.setScalar(workshopRunning?.8+pulse*.55:.5);});
     motion.droplets.forEach(({drop,phase})=>{drop.visible=greenhouseRunning;if(greenhouseRunning){const fall=(logical*.7+phase)%1;drop.position.y=1.82-fall*.76;drop.scale.setScalar(.65+fall*.35);}});
     motion.signals.forEach((signal,i)=>{const pulse=cloudRunning?1+Math.sin(logical*3+i)*.18:1;signal.scale.setScalar(pulse);signal.rotation.z=cloudRunning?logical*.55:0;});
+    if(dreamIsland.visible){
+      dreamClouds.forEach(({cloud,baseY,phase})=>{cloud.position.y=baseY+Math.sin(logical*.38+phase)*.09;});
+      dreamStars.forEach(({sparkle,phase})=>{const pulse=.78+Math.sin(logical*1.15+phase)*.2;sparkle.scale.setScalar(pulse);sparkle.rotation.z=logical*.35+phase;});
+    }
     for(const home of scheduleMotion){
       const running=home.status==='running';
       if(running&&home.spinner)home.spinner.rotation.z+=dt*(1.1+home.variant*.16);

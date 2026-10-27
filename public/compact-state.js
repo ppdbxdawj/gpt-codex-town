@@ -23,7 +23,7 @@ export function compactTaskState(state = {}, { refreshFailed = false } = {}) {
     running: unavailable ? null : confirmed.filter((task) => task.status === 'running').length,
     waiting: unavailable ? null : confirmed.filter((task) => task.status === 'waiting').length,
     unknownCount: unavailable ? null : unknownCount,
-    tasks: unavailable ? [] : confirmed.slice(0, 3),
+    tasks: unavailable ? [] : confirmed,
     message: unavailable
       ? '状态待更新，当前读取范围暂不可确认。'
       : unknownCount
@@ -37,7 +37,16 @@ export function compactInboxState(state = {}) {
   const pending = Number.isFinite(state?.inbox?.pendingCount)
     ? Math.max(0, state.inbox.pendingCount)
     : items.filter((item) => item?.status !== 'accepted').length;
-  return { pending, items: items.filter((item) => item?.status !== 'accepted').slice(0, 3) };
+  return { pending, items: items.filter((item) => item?.status !== 'accepted') };
+}
+
+export function resolveCompactPage(items, selection = {}) {
+  const records = Array.isArray(items) ? items : [];
+  if (!records.length) return { item: null, index: 0, total: 0 };
+  const wantedId = value(selection?.itemId);
+  let index = wantedId ? records.findIndex((item) => item?.id === wantedId) : -1;
+  if (index < 0) index = Math.max(0, Math.min(Number(selection?.page) || 0, records.length - 1));
+  return { item: records[index], index, total: records.length };
 }
 
 export function compactAutomationState(state = {}) {

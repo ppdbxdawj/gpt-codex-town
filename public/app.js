@@ -1,4 +1,4 @@
-import { compactAutomationState, compactInboxState, compactTaskState } from './compact-state.js';
+import { compactAutomationState, compactInboxState, compactTaskState, resolveCompactPage } from './compact-state.js';
 
 const POLL_MS = 5000;
 const STATUS_LABELS = {
@@ -240,7 +240,7 @@ function isMiniMode() { return document.documentElement.dataset.desktopMode === 
 
 function compactItem(title, status, url) {
   const row = makeElement("div", "compact-popover-item");
-  row.append(makeElement("span", "", title), makeElement("small", "", status));
+  row.append(makeElement("strong", "compact-item-title", title), makeElement("small", "compact-item-status", status));
   if (url) {
     const open = makeElement("button", "", "打开原任务 ↗");
     open.type = "button";
@@ -248,6 +248,30 @@ function compactItem(title, status, url) {
     row.append(open);
   }
   return row;
+}
+
+function compactPage(target, items) {
+  const page = resolveCompactPage(items, target);
+  target.page = page.index;
+  target.itemId = page.item?.id || null;
+  return page;
+}
+
+function compactPager(page) {
+  if (page.total < 2) return null;
+  const pager = makeElement("nav", "compact-pager");
+  pager.setAttribute("aria-label", "切换迷你城市记录");
+  const previous = makeElement("button", "", "‹ 上一项");
+  previous.type = "button"; previous.dataset.compactPage = String(page.index - 1); previous.disabled = page.index === 0;
+  const position = makeElement("span", "", `${page.index + 1} / ${page.total}`);
+  const next = makeElement("button", "", "下一项 ›");
+  next.type = "button"; next.dataset.compactPage = String(page.index + 1); next.disabled = page.index === page.total - 1;
+  pager.append(previous, position, next);
+  return pager;
+}
+
+function compactStatus(status) {
+  return { unread: "未读", read: "已读", accepted: "已验收" }[status] || "待查看";
 }
 
 function renderCompactPopover() {
@@ -259,7 +283,9 @@ function renderCompactPopover() {
     const compact = compactTaskState(state.data || {}, { refreshFailed: state.failedRefreshes > 0 });
     ui.compactTitle.textContent = "Codex 工坊";
     ui.compactCopy.textContent = compact.message;
-    compact.tasks.forEach((task) => ui.compactItems.append(compactItem(text(task.title, "未命名任务"), STATUS_LABELS[statusKey(task.status)], safeUrl(task.threadUrl))));
+    const page = compactPage(target, compact.tasks);
+    if (page.item) ui.compactItems.append(compactItem(text(page.item.title, "未命名任务"), STATUS_LABELS[statusKey(page.item.status)], safeUrl(page.item.threadUrl)));
+    const pager = compactPager(page); if (pager) ui.compactItems.append(pager);
     if (!compact.tasks.length && compact.status !== "unavailable") ui.compactItems.append(makeElement("div", "compact-popover-item", "暂无已确认进行项"));
     return;
   }
@@ -267,10 +293,12 @@ function renderCompactPopover() {
     const compact = compactInboxState(state.data || {});
     ui.compactTitle.textContent = `待拆礼盒 · ${compact.pending}`;
     ui.compactCopy.textContent = "只显示少量预览；验收请在展开后的委托簿中进行。";
-    compact.items.forEach((item) => {
-      const preview = text(item.body, text(item.summary, "暂无可读预览")).replace(/\s+/g, " ").slice(0, 44);
-      ui.compactItems.append(compactItem(text(item.title, "未命名礼盒"), preview || "暂无可读预览", safeUrl(item.threadUrl)));
-    });
+    const page = compactPage(target, compact.items);
+    if (page.item) {
+      const preview = text(page.item.body, text(page.item.summary, "暂无可读预览")).replace(/\s+/g, " ").slice(0, 84);
+      ui.compactItems.append(compactItem(text(page.item.title, "未命名礼盒"), `${compactStatus(page.item.status)} · 正文预览：${preview || "暂无可读预览"}`, safeUrl(page.item.threadUrl)));
+    }
+    const pager = compactPager(page); if (pager) ui.compactItems.append(pager);
     if (!compact.items.length) ui.compactItems.append(makeElement("div", "compact-popover-item", "当前没有待验收礼盒"));
     return;
   }
@@ -282,9 +310,16 @@ function renderCompactPopover() {
 
 function openCompactPopover(target) {
   if (!isMiniMode()) return false;
-  state.compactTarget = target;
+  state.compactTarget = { ...target, page: 0, itemId: null };
+  if (target.kind === "automation") state.manor?.focusAutomation?.(target.id);
   renderCompactPopover();
   return true;
+}
+
+function closeCompactPopover() {
+  state.compactTarget = null;
+  ui.compactPopover.hidden = true;
+  if (isMiniMode()) state.manor?.resetView?.();
 }
 
 function setConnection(kind, label, title = label) {
@@ -1060,8 +1095,15 @@ function bindEvents() {
   ui.miniTheme.addEventListener("click", () => setTheme(state.theme === "day" ? "night" : "day"));
   ui.miniPause.addEventListener("click", () => setPaused(!state.animationPaused));
   ui.miniExpand.addEventListener("click", () => requestWindowMode("full"));
-  ui.compactClose.addEventListener("click", () => { state.compactTarget = null; ui.compactPopover.hidden = true; });
+  ui.compactClose.addEventListener("click", closeCompactPopover);
   ui.compactItems.addEventListener("click", (event) => {
+    const page = event.target.closest("[data-compact-page]");
+    if (page && state.compactTarget) {
+      state.compactTarget.page = Number(page.dataset.compactPage) || 0;
+      state.compactTarget.itemId = null;
+      renderCompactPopover();
+      return;
+    }
     const open = event.target.closest("[data-compact-url]");
     if (open) requestDesktop("open_url", { url: open.dataset.compactUrl }).catch(() => {});
   });
