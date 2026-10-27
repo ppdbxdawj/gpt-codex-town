@@ -1,40 +1,76 @@
-# Codex Town
+# GPT · Codex Town｜星糖庄园
 
-Codex Town 是“星糖庄园”的源码仓库。星糖庄园是本机运行的 macOS 3D 庄园应用，以只读方式呈现本机可访问的任务、自动化、成果和有限的任务过程；它不会执行任务、发送消息或上传本地数据。
+**A macOS 3D desktop companion for visualizing local GPT/Codex tasks, active automations, recent progress, and a review inbox.**
 
-## 功能
+Codex Town turns locally available task state into a readable 3D town: workshops for current work, homes for active automations, a progress card for the latest visible local activity, and gifts waiting for your explicit review. The app UI is currently Chinese.
 
-- 原庄园内的启用自动化小院、集中任务工坊、成果阅读与明确验收记录。
-- 本机 Codex 日志中最近一轮的公开进展与工具类别，最多显示 12 项。
-- 带采集时间的云端计划和结果快照。它们不是实时同步，云端执行过程不可读。
-- 原生 macOS 应用壳、本地 Python 服务与本地 Three.js 运行时。
+It is a personal, local-first companion. It does not run tasks, send messages, or upload your data. Codex Town is independent and is not affiliated with, endorsed by, or sponsored by OpenAI.
 
-过程卡不会显示模型思考、提示词、命令参数、工具输出或完整执行记录。自动化展示的本机过程只按关联任务读取，不能证明该计划触发了这次执行。阅读、验收和成果馆记录只会在用户操作后改变。
+> 中文说明：请阅读 [README.zh-CN.md](README.zh-CN.md)。
 
-默认庄园主人是程序化角色，不含任何个人模型或贴图。`public/assets/` 以及 GLB、FBX、WebP 文件均不随源码仓库发布。
+## Why Codex Town?
 
-## 构建与运行
+- **See work at a glance.** Local task and automation state becomes a 3D desktop view without treating scheduled work as automatically running.
+- **Keep review intentional.** Reading a result is separate from accepting it; acceptance remains an explicit local action.
+- **Show useful progress carefully.** The progress card displays only the latest turn's visible local commentary and tool categories, capped at 12 events. It never displays model reasoning, prompts, command arguments, tool output, or a full execution transcript.
+- **Stay honest about cloud data.** Cloud schedules and results are manually captured snapshots, not live synchronization. Cloud execution progress is unavailable.
 
-需要 macOS 13+、Apple Silicon、Xcode Command Line Tools、Python 3.9+ 与 Node.js。项目级 `.npmrc` 固定使用 npm 公共源。
+## Features
+
+| Area | What it does |
+| --- | --- |
+| 3D town | Shows the central workshop, active automation homes, result hall, transport track, and a procedural town owner in one scene. |
+| Local tasks | Reads locally available Codex task and automation state without changing it. |
+| Automation homes | Keeps one home per active automation ID; paused and historical plans are hidden from the current view, not deleted. |
+| Progress card | Shows the latest visible local turn, its status, time, and up to 12 public progress or tool-category events. |
+| Review inbox | Lets you read, explicitly accept, or reopen locally stored results. Reading does not mean acceptance. |
+| Cloud snapshots | Displays timestamped, manually imported schedule and result snapshots with stale/unavailable states. |
+
+## Quick start
+
+**Requirements:** macOS 13+, Apple Silicon, Python 3.9+, Node.js, and Xcode Command Line Tools.
 
 ```zsh
+git clone https://github.com/ppdbxdawj/gpt-codex-town.git
+cd gpt-codex-town
 npm ci --ignore-scripts
 npm run prepare:vendor
 zsh desktop/build-app.sh
 open 星糖庄园.app
 ```
 
-`prepare:vendor` 从锁定的依赖重建本地 Three.js 运行时，并生成相应的第三方许可文件。打包脚本会构建并临时签名原生应用。
+The project-level `.npmrc` uses the public npm registry. `prepare:vendor` rebuilds the local Three.js runtime and its bundled third-party notice; the build script creates and ad-hoc signs the native app.
 
-## 验证
+## Data boundaries
 
-已验证的源码构建通过，Python 测试 47 项与 Node 测试 6 项均通过。可在本机重新运行：
+- Local Codex data is read-only.
+- Cloud schedules and results are optional, manually imported snapshots. They are not real-time or complete cloud synchronization.
+- An automation's local progress is associated by task reference; it does not prove that the automation triggered that run.
+- Results, read state, and acceptance records remain local. The app never automatically accepts a result.
+- The bundled town owner is procedural. Personal models, textures, task logs, databases, screenshots, and private snapshots are not included in this repository.
+
+## Verification
+
+The current source build has been verified with 47 Python tests and 6 Node tests:
 
 ```zsh
 python3 -B -m unittest discover -s tests -v
 node --test tests/test_schedule_village.mjs
 ```
 
-## 第三方与许可证
+## Roadmap
 
-第三方依赖与通知见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。本仓库的源码许可证尚未指定。
+- Improve visual polish and accessibility for the town and review flows.
+- Improve live progress updates and add English UI support.
+- Validate night mode, motion preferences, notifications, and performance on more macOS configurations.
+- Document reproducible release checks and public distribution workflow.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change, especially the rules for keeping personal task data and assets out of the repository.
+
+If Codex Town helps you make sense of local AI-assisted work, please consider giving it a star. Fork it to explore your own local-first task visualization ideas.
+
+## Third-party notices and license
+
+Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). A license for this repository's source code has not yet been specified; no open-source license is granted by this repository at this time.

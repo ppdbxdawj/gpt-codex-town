@@ -1,0 +1,43 @@
+name: Bug report / 问题反馈
+description: Report a reproducible problem / 报告可复现的问题
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve GPT · Codex Town. / 感谢帮助改进 GPT · Codex Town。
+
+        Please do not upload task text, credentials, private snapshots, or personal data. Logs are optional. / 请勿上传任务正文、凭据、私人快照或个人数据；日志非必填。
+  - type: input
+    id: version
+    attributes:
+      label: App version / 应用版本
+      placeholder: "e.g. 0.5.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version / macOS 版本
+      placeholder: "e.g. macOS 15.0"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      placeholder: "1. …\n2. …"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result / 预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result / 实际结果
+    validations:
+      required: true

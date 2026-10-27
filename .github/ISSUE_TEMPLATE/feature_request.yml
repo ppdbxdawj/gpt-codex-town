@@ -1,0 +1,22 @@
+name: Feature request / 功能建议
+description: Suggest an improvement / 提出改进建议
+title: "feature: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share the need behind the idea. Please do not include task text, credentials, private snapshots, or personal data. / 欢迎描述真实需求；请勿包含任务正文、凭据、私人快照或个人数据。
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Your scenario / 使用场景
+      placeholder: "What are you trying to do? / 你想完成什么？"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested change / 建议方案
+      placeholder: "What would help? / 什么改动会有帮助？"
+    validations:
+      required: true
