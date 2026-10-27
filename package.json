@@ -1,0 +1,13 @@
+{
+  "name": "star-sugar-manor",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "description": "本机只读的 3D 任务庄园",
+  "scripts": {
+    "prepare:vendor": "node scripts/prepare-vendor.mjs"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  }
+}

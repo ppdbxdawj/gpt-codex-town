@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN" data-desktop-mode="mini">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fff8ef" />
+    <title>星糖庄园 · Stardust Manor</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="importmap">
+      {"imports":{"three":"/vendor/three.module.js"}}
+    </script>
+  </head>
+  <body data-theme="day">
+    <section id="desktop-required" class="desktop-required" hidden>
+      <span aria-hidden="true">✦</span><strong>请从星糖庄园应用打开</strong><p>庄园会在应用里为你整理委托与待验收礼盒。</p>
+    </section>
+    <a class="skip-link" href="#delegation-list">跳到委托列表</a>
+    <main class="manor-shell">
+      <header class="topbar" aria-label="庄园控制台">
+        <a class="brand" href="/" aria-label="星糖庄园首页">
+          <span class="brand-mark" aria-hidden="true">✦</span>
+          <span><b>星糖庄园</b><small>STARDUST MANOR</small></span>
+        </a>
+
+        <div class="header-stats" aria-label="任务概况">
+          <span><i class="stat-dot running"></i><b id="running-count">0</b> 运行</span>
+          <span><i class="stat-dot waiting"></i><b id="waiting-count">0</b> 待处理</span>
+          <span><i class="stat-dot completed"></i><b id="completed-count">0</b> 本轮结束</span>
+          <small id="record-range">最近记录范围：—</small>
+        </div>
+
+        <div class="top-actions">
+          <span id="connection-state" class="connection state-unknown" title="等待读取本机状态"><i></i><span>本机连接中</span></span>
+          <button id="refresh-button" class="icon-button" type="button" title="立即读取本机状态" aria-label="立即读取本机状态">↻</button>
+          <button id="theme-button" class="round-button" type="button" aria-pressed="false" title="切换日间与星光夜间">☾ <span>星光</span></button>
+          <button id="pause-button" class="round-button" type="button" aria-pressed="false" title="暂停或恢复庄园动画">Ⅱ <span>暂停动画</span></button>
+          <button id="desktop-mode-button" class="round-button" type="button" title="展开完整委托簿" aria-label="展开完整委托簿">↗ <span>展开</span></button>
+        </div>
+      </header>
+
+      <section class="source-strip" aria-live="polite">
+        <div class="source-strip-title"><span aria-hidden="true">✉</span> 本机任务簿</div>
+        <div id="source-statuses" class="source-statuses"><span class="source-chip muted">等待来源回应…</span></div>
+        <div id="scope-note" class="scope-note" hidden></div>
+        <div id="sync-status" class="sync-status">尚未同步</div>
+      </section>
+
+      <div id="stale-notice" class="stale-notice" hidden role="status">
+        <span>⚑</span><span id="stale-message">显示的是上一次可用记录，正在尝试恢复自动更新。</span>
+      </div>
+
+      <div class="manor-layout">
+        <section class="scene-column" aria-label="3D 星糖庄园">
+          <div class="scene-frame">
+            <div id="manor-scene" class="manor-scene" aria-label="可旋转查看的三维庄园" aria-busy="true"></div>
+            <div id="scene-unavailable" class="scene-unavailable" hidden role="status">
+              <strong>3D 庄园暂时无法点亮</strong>
+              <span>任务委托簿仍可正常查看真实本机记录。</span>
+            </div>
+            <div class="scene-caption" aria-hidden="true"><span>✦</span> 阅读本机状态 · 只读展示</div>
+            <section id="progress-card" class="progress-card" aria-live="polite" hidden>
+              <div class="progress-card-top"><div><p id="progress-kicker">执行过程</p><strong id="progress-title">最近过程</strong></div><button id="progress-close" type="button" aria-label="关闭执行过程">×</button></div>
+              <select id="progress-select" aria-label="选择查看的任务过程" hidden></select>
+              <p id="progress-meta" class="progress-meta"></p><ol id="progress-events" class="progress-events"></ol>
+              <button id="progress-expand" class="progress-expand" type="button" hidden>展开全部过程</button>
+            </section>
+            <button id="schedule-inbox-button" class="schedule-inbox-button" type="button">定时收件 · <b id="schedule-inbox-count">0</b></button>
+            <div class="scene-controls">
+              <button id="reset-view-button" type="button" class="scene-button" title="恢复庄园视角">⌁ 恢复视角</button>
+              <button id="focus-owner-button" type="button" class="scene-button" title="正在准备庄园主人" aria-label="找到庄园中的我" aria-describedby="owner-avatar-status" disabled>♡ 找到我</button>
+              <span id="owner-avatar-status" class="owner-avatar-status" role="status">正在准备庄园主人…</span>
+              <span class="scene-hint">拖动查看庄园 · 点击建筑查看记录</span>
+            </div>
+          </div>
+
+          <div id="runtime-ribbon" class="runtime-ribbon" aria-live="polite">
+            <span class="runtime-chip"><i class="running"></i><b id="trail-running-count">0</b> 正在运行</span>
+            <span class="runtime-chip"><i class="waiting"></i><b id="trail-standby-count">0</b> 待命计划</span>
+            <span class="runtime-chip cloud"><i></i><b id="trail-cloud-count">0</b> 云端计划</span>
+            <span id="trail-next-local" class="runtime-next">下一次本机计划：等待记录</span>
+          </div>
+
+          <button id="mini-inbox-button" class="mini-inbox-button" type="button" aria-label="打开待拆礼盒">
+            <span aria-hidden="true">🎁</span><b>待拆礼盒</b><small><strong id="mini-unread-count">0</strong> 未读 · <strong id="mini-pending-count">0</strong> 待验收</small><em>打开收件入口 ↗</em>
+          </button>
+
+          <div class="helpers" aria-label="庄园小助手">
+            <article class="helper-card rabbit"><span class="helper-avatar" aria-hidden="true">🐇</span><div><b>棉棉 · ChatGPT 书屋助手</b><p>定时产出会在各自小院等你查看；云端计划保留采集时间。</p></div></article>
+            <article class="helper-card sheep"><span class="helper-avatar" aria-hidden="true">🐑</span><div><b>团团 · Codex 工坊助手</b><p>查看真实本机任务与来源状态；这里不控制任何任务。</p></div></article>
+          </div>
+        </section>
+
+        <aside class="ledger" aria-label="庄园委托簿">
+          <div class="ledger-top">
+            <div><p class="eyebrow">MANOR LEDGER</p><h1>庄园委托簿</h1></div>
+            <span id="task-total" class="task-total">0 项</span>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="记录类型">
+            <button id="tab-tasks" class="tab is-active" role="tab" aria-selected="true" aria-controls="panel-tasks" data-tab="tasks">委托</button>
+            <button id="tab-inbox" class="tab" role="tab" aria-selected="false" aria-controls="panel-inbox" data-tab="inbox">待拆礼盒</button>
+            <button id="tab-automations" class="tab" role="tab" aria-selected="false" aria-controls="panel-automations" data-tab="automations">定时收件</button>
+            <button id="tab-artifacts" class="tab" role="tab" aria-selected="false" aria-controls="panel-artifacts" data-tab="artifacts">已验收结果</button>
+          </div>
+
+          <section id="panel-tasks" class="tab-panel" role="tabpanel" aria-labelledby="tab-tasks">
+            <div class="filters">
+              <label class="source-select">来源
+                <select id="source-filter" aria-label="按来源筛选任务">
+                  <option value="all">全部记录</option>
+                  <option value="codex">Codex</option>
+                  <option value="chatgpt">ChatGPT</option>
+                </select>
+              </label>
+              <label class="search-field"><span class="visually-hidden">搜索任务</span><input id="task-search" type="search" placeholder="搜索任务或项目" autocomplete="off" /></label>
+            </div>
+            <p id="filter-summary" class="filter-summary">正在准备任务记录…</p>
+            <div id="delegation-list" class="record-list" tabindex="-1"></div>
+          </section>
+
+          <section id="panel-inbox" class="tab-panel" role="tabpanel" aria-labelledby="tab-inbox" hidden>
+            <p class="panel-note">礼盒来自真实记录；打开礼盒只标为已读，验收需要你明确确认。</p>
+            <div id="inbox-list" class="record-list"></div>
+          </section>
+
+          <section id="panel-automations" class="tab-panel" role="tabpanel" aria-labelledby="tab-automations" hidden>
+            <p class="panel-note">这里只显示当前已启用计划的最新已读取产出；展开正文只标为已读，验收仍需你明确确认。</p>
+            <div class="automation-toolbar" aria-label="自动化来源筛选">
+              <div class="automation-filters" role="group" aria-label="筛选自动化来源">
+                <button type="button" class="automation-filter is-active" data-automation-source="all">全部</button>
+                <button type="button" class="automation-filter" data-automation-source="local">本机</button>
+                <button type="button" class="automation-filter" data-automation-source="cloud">云端</button>
+              </div>
+              <button id="open-cloud-schedules" type="button" class="mini-button">查看云端最新状态 ↗</button>
+            </div>
+            <p id="cloud-sync-note" class="cloud-sync-note" hidden></p>
+            <div id="automation-list" class="record-list"></div>
+          </section>
+
+          <section id="panel-artifacts" class="tab-panel" role="tabpanel" aria-labelledby="tab-artifacts" hidden>
+            <p class="panel-note">只有你确认验收的礼盒会出现在这里；纯文字结果也会保留。</p>
+            <div id="artifact-list" class="record-list"></div>
+          </section>
+
+          <section class="activity" aria-labelledby="activity-title">
+            <div class="section-heading"><h2 id="activity-title">庄园小记</h2><span>实际事件</span></div>
+            <ul id="activity-list" class="activity-list"></ul>
+          </section>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

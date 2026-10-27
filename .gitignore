@@ -1,0 +1,56 @@
+# Generated application bundles and build staging
+*.app/
+.star-sugar-manor-build.*/
+.star-sugar-manor.previous.app/
+build/
+dist/
+.build/
+desktop/.AppIcon*
+
+# Local runtime, data, and logs
+.runtime/
+*.sqlite3
+*.sqlite
+*.db
+*.log
+*.pid
+*.jsonl
+Library/
+AppSupport/
+
+# Private observations and result snapshots
+cloud-snapshot.json
+cloud-results.json
+*-snapshot.json
+*-results.json
+private/
+snapshots/
+
+# Dependencies and generated front-end runtime
+node_modules/
+public/vendor/
+
+# Personal or non-redistributable assets
+public/assets/
+*.glb
+*.gltf
+*.fbx
+*.webp
+
+# Secrets, local configuration, and captures
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+screenshots/
+*.png
+*.jpg
+*.jpeg
+
+# Language and editor caches
+__pycache__/
+*.py[cod]
+.DS_Store
+.idea/
+.vscode/
