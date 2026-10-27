@@ -1,12 +1,16 @@
 # GPT · Codex Town｜星糖庄园
 
+> 中文：[README.zh-CN.md](README.zh-CN.md)
+
 **A macOS 3D desktop companion for visualizing local GPT/Codex tasks, active automations, recent progress, and a review inbox.**
 
 Codex Town turns locally available task state into a readable 3D town: workshops for current work, homes for active automations, a progress card for the latest visible local activity, and gifts waiting for your explicit review. The app UI is currently Chinese.
 
 It is a personal, local-first companion. It does not run tasks, send messages, or upload your data. Codex Town is independent and is not affiliated with, endorsed by, or sponsored by OpenAI.
 
-> 中文说明：请阅读 [README.zh-CN.md](README.zh-CN.md)。
+![Codex Town overview](docs/images/town-overview.png)
+
+*Current app UI rendered with entirely fictional demo data, not real user records.*
 
 ## Why Codex Town?
 
@@ -25,6 +29,14 @@ It is a personal, local-first companion. It does not run tasks, send messages, o
 | Progress card | Shows the latest visible local turn, its status, time, and up to 12 public progress or tool-category events. |
 | Review inbox | Lets you read, explicitly accept, or reopen locally stored results. Reading does not mean acceptance. |
 | Cloud snapshots | Displays timestamped, manually imported schedule and result snapshots with stale/unavailable states. |
+
+![Task progress card](docs/images/task-progress.png)
+
+*A local task's visible progress card: public commentary and tool categories only.*
+
+![Review inbox](docs/images/review-inbox.png)
+
+*The review inbox keeps reading separate from explicit acceptance.*
 
 ## Quick start
 
@@ -47,7 +59,7 @@ The project-level `.npmrc` uses the public npm registry. `prepare:vendor` rebuil
 - Cloud schedules and results are optional, manually imported snapshots. They are not real-time or complete cloud synchronization.
 - An automation's local progress is associated by task reference; it does not prove that the automation triggered that run.
 - Results, read state, and acceptance records remain local. The app never automatically accepts a result.
-- The bundled town owner is procedural. Personal models, textures, task logs, databases, screenshots, and private snapshots are not included in this repository.
+- The bundled town owner is procedural. Personal models, textures, task logs, databases, private screenshots, and private snapshots are not included in this repository.
 
 ## Verification
 

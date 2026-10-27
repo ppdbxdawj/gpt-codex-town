@@ -54,3 +54,6 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+!docs/images/
+!docs/images/*.png
