@@ -83,6 +83,52 @@ class AdapterTests(unittest.TestCase):
                                       (late, {"type": "task_complete", "turn_id": "old"})])
         self.assertEqual("running", self._snapshot()["tasks"][0]["status"])
 
+    def test_old_turn_approval_and_activity_do_not_pollute_current_turn(self):
+        old = (self.now - timedelta(minutes=2)).isoformat().replace("+00:00", "Z")
+        new = (self.now - timedelta(seconds=50)).isoformat().replace("+00:00", "Z")
+        recent = (self.now - timedelta(seconds=10)).isoformat().replace("+00:00", "Z")
+        self._add_codex("old-approval", [
+            (old, {"type": "task_started", "turn_id": "old"}),
+            (new, {"type": "task_started", "turn_id": "new"}),
+            (recent, {"type": "approval_requested", "turn_id": "old"}),
+            (recent, {"type": "item_completed", "turn_id": "old", "item": {"type": "CommandExecution"}}),
+        ])
+        self.assertEqual("running", self._snapshot()["tasks"][0]["status"])
+
+    def test_recent_approval_without_later_execution_is_waiting(self):
+        started = (self.now - timedelta(minutes=3)).isoformat().replace("+00:00", "Z")
+        approval = (self.now - timedelta(minutes=2)).isoformat().replace("+00:00", "Z")
+        older_activity = (self.now - timedelta(minutes=2, seconds=30)).isoformat().replace("+00:00", "Z")
+        self._add_codex("waiting", [(started, {"type": "task_started", "turn_id": "turn"}),
+                                     (approval, {"type": "approval_requested", "turn_id": "turn"}),
+                                     (older_activity, {"type": "item_completed", "turn_id": "turn", "item": {"type": "CommandExecution"}}),
+                                     (approval, {"type": "item_completed", "turn_id": "turn", "item": {"type": "UnknownInternalItem"}})])
+        self.assertEqual("waiting", self._snapshot()["tasks"][0]["status"])
+
+    def test_stale_approval_becomes_unknown(self):
+        started = (self.now - timedelta(minutes=20)).isoformat().replace("+00:00", "Z")
+        approval = (self.now - timedelta(minutes=16)).isoformat().replace("+00:00", "Z")
+        self._add_codex("stale-waiting", [(started, {"type": "task_started", "turn_id": "turn"}),
+                                           (approval, {"type": "approval_requested", "turn_id": "turn"})])
+        task = self._snapshot()["tasks"][0]
+        self.assertEqual("unknown", task["status"])
+        self.assertIn("15", task["statusDetail"])
+
+    def test_approval_followed_by_execution_resumes_running(self):
+        started = (self.now - timedelta(minutes=4)).isoformat().replace("+00:00", "Z")
+        approval = (self.now - timedelta(minutes=3)).isoformat().replace("+00:00", "Z")
+        continued = (self.now - timedelta(seconds=5)).isoformat().replace("+00:00", "Z")
+        self._add_codex("resumed", [
+            (started, {"type": "task_started", "turn_id": "turn"}),
+            (approval, {"type": "approval_requested", "turn_id": "turn"}),
+            (continued, {"type": "reasoning", "turn_id": "turn"}),
+            (continued, {"type": "token_count", "turn_id": "turn"}),
+            (continued, {"type": "item_completed", "turn_id": "turn", "item": {"type": "CommandExecution"}}),
+        ])
+        task = self._snapshot()["tasks"][0]
+        self.assertEqual("running", task["status"])
+        self.assertIn("审批后", task["statusDetail"])
+
     def test_expired_started_turn_becomes_unknown(self):
         stale = (self.now - timedelta(minutes=16)).isoformat().replace("+00:00", "Z")
         self._add_codex("stale", [(stale, {"type": "task_started", "turn_id": "old"})])

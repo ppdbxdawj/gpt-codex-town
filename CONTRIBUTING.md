@@ -10,10 +10,10 @@ Use macOS 13+ on Apple Silicon with Python 3.9+, Node.js, and Xcode Command Line
 npm ci --ignore-scripts
 npm run prepare:vendor
 python3 -B -m unittest discover -s tests -v
-node --test tests/test_schedule_village.mjs
+node --test tests/test_*.mjs
 ```
 
-The current baseline is 47 Python tests and 6 Node tests. Run `zsh desktop/build-app.sh` when changing Swift, packaging, or front-end resources.
+Run `zsh desktop/build-app.sh` when changing Swift, packaging, or front-end resources.
 
 ## Privacy and data rules
 

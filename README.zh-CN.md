@@ -38,6 +38,14 @@ Codex Town 把本机可读取的任务状态呈现在 3D 小城中：工坊对�
 
 *待审成果将阅读与明确验收分开。*
 
+### 纯城市迷你模式
+
+迷你模式是一个全窗口 3D 小城，用紧凑视图呈现最近本机可读范围内的工作概况，并非整个账号的统计。它只保留建筑气泡和“展开”“主题”“动画”浮动控制：工坊区分已确认的运行与等你处理，启用自动化各有名称小院，礼盒显示待审数量。未知状态会单独显示；断联数据会标记为等待更新，绝不会显示为零。云端快照仍非实时。点击建筑只打开轻量状态卡，并在可用时提供原任务链接；不会自动打开完整审阅视图。
+
+![纯城市迷你模式](docs/images/mini-city.png)
+
+*纯城市迷你模式，虚构演示数据。*
+
 ## 快速开始
 
 **环境要求：** macOS 13+、Apple Silicon、Python 3.9+、Node.js 和 Xcode Command Line Tools。
@@ -63,11 +71,11 @@ open 星糖庄园.app
 
 ## 验证
 
-当前源码构建已验证通过 47 项 Python 测试和 6 项 Node 测试：
+源码包含 Python 与 Node 测试套件：
 
 ```zsh
 python3 -B -m unittest discover -s tests -v
-node --test tests/test_schedule_village.mjs
+node --test tests/test_*.mjs
 ```
 
 ## Roadmap

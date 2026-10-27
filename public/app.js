@@ -1,3 +1,5 @@
+import { compactAutomationState, compactInboxState, compactTaskState } from './compact-state.js';
+
 const POLL_MS = 5000;
 const STATUS_LABELS = {
   running: "运行中",
@@ -51,6 +53,7 @@ const state = {
   progressTarget: null,
   progressClosed: false,
   progressExpanded: false,
+  compactTarget: null,
 };
 
 const ui = {
@@ -97,6 +100,8 @@ const ui = {
   tabs: Array.from(document.querySelectorAll(".tab")),
   panels: Array.from(document.querySelectorAll(".tab-panel")),
   progressCard: document.querySelector("#progress-card"), progressTitle: document.querySelector("#progress-title"), progressMeta: document.querySelector("#progress-meta"), progressEvents: document.querySelector("#progress-events"), progressClose: document.querySelector("#progress-close"), progressExpand: document.querySelector("#progress-expand"), progressSelect: document.querySelector("#progress-select"),
+  miniTheme: document.querySelector("#mini-theme-button"), miniPause: document.querySelector("#mini-pause-button"), miniExpand: document.querySelector("#mini-expand-button"),
+  compactPopover: document.querySelector("#compact-popover"), compactTitle: document.querySelector("#compact-popover-title"), compactCopy: document.querySelector("#compact-popover-copy"), compactItems: document.querySelector("#compact-popover-items"), compactClose: document.querySelector("#compact-popover-close"),
 };
 
 function text(value, fallback = "—") {
@@ -229,6 +234,57 @@ function emptyState(title, copy) {
   const paragraph = makeElement("span", "", copy);
   empty.append(strong, paragraph);
   return empty;
+}
+
+function isMiniMode() { return document.documentElement.dataset.desktopMode === "mini"; }
+
+function compactItem(title, status, url) {
+  const row = makeElement("div", "compact-popover-item");
+  row.append(makeElement("span", "", title), makeElement("small", "", status));
+  if (url) {
+    const open = makeElement("button", "", "打开原任务 ↗");
+    open.type = "button";
+    open.dataset.compactUrl = url;
+    row.append(open);
+  }
+  return row;
+}
+
+function renderCompactPopover() {
+  if (!isMiniMode() || !state.compactTarget) { ui.compactPopover.hidden = true; return; }
+  const target = state.compactTarget;
+  ui.compactPopover.hidden = false;
+  ui.compactItems.replaceChildren();
+  if (target.kind === "codex") {
+    const compact = compactTaskState(state.data || {}, { refreshFailed: state.failedRefreshes > 0 });
+    ui.compactTitle.textContent = "Codex 工坊";
+    ui.compactCopy.textContent = compact.message;
+    compact.tasks.forEach((task) => ui.compactItems.append(compactItem(text(task.title, "未命名任务"), STATUS_LABELS[statusKey(task.status)], safeUrl(task.threadUrl))));
+    if (!compact.tasks.length && compact.status !== "unavailable") ui.compactItems.append(makeElement("div", "compact-popover-item", "暂无已确认进行项"));
+    return;
+  }
+  if (target.kind === "inbox") {
+    const compact = compactInboxState(state.data || {});
+    ui.compactTitle.textContent = `待拆礼盒 · ${compact.pending}`;
+    ui.compactCopy.textContent = "只显示少量预览；验收请在展开后的委托簿中进行。";
+    compact.items.forEach((item) => {
+      const preview = text(item.body, text(item.summary, "暂无可读预览")).replace(/\s+/g, " ").slice(0, 44);
+      ui.compactItems.append(compactItem(text(item.title, "未命名礼盒"), preview || "暂无可读预览", safeUrl(item.threadUrl)));
+    });
+    if (!compact.items.length) ui.compactItems.append(makeElement("div", "compact-popover-item", "当前没有待验收礼盒"));
+    return;
+  }
+  const automation = compactAutomationState(state.data || {}).find((item) => item.id === target.id);
+  ui.compactTitle.textContent = automation?.title || "定时小院";
+  ui.compactCopy.textContent = automation?.status || "当前计划不在可读范围。";
+  if (automation?.threadUrl) ui.compactItems.append(compactItem("查看关联计划", "不会展开委托簿", safeUrl(automation.threadUrl)));
+}
+
+function openCompactPopover(target) {
+  if (!isMiniMode()) return false;
+  state.compactTarget = target;
+  renderCompactPopover();
+  return true;
 }
 
 function setConnection(kind, label, title = label) {
@@ -699,6 +755,7 @@ function render() {
   renderEvents();
   renderProgress();
   updateTabs();
+  renderCompactPopover();
 }
 
 function updateTabs() {
@@ -784,6 +841,8 @@ function setTheme(theme) {
   ui.theme.replaceChildren();
   ui.theme.append(document.createTextNode(state.theme === "night" ? "☀ " : "☾ "));
   ui.theme.append(makeElement("span", "", state.theme === "night" ? "日间" : "星光"));
+  ui.miniTheme.textContent = state.theme === "night" ? "☀" : "☾";
+  ui.miniTheme.title = state.theme === "night" ? "切换到日间" : "切换到星光夜间";
   state.manor?.setTheme?.(state.theme);
 }
 
@@ -794,6 +853,8 @@ function setPaused(paused) {
   ui.pause.replaceChildren();
   ui.pause.append(document.createTextNode(state.animationPaused ? "▶ " : "Ⅱ "));
   ui.pause.append(makeElement("span", "", state.animationPaused ? "恢复动画" : "暂停动画"));
+  ui.miniPause.textContent = state.animationPaused ? "▶" : "Ⅱ";
+  ui.miniPause.title = state.animationPaused ? "恢复庄园动画" : "暂停庄园动画";
   state.manor?.setPaused?.(state.animationPaused);
 }
 
@@ -850,6 +911,7 @@ function applyDesktopState(incoming) {
   ui.staleNotice.hidden = true;
   render();
   state.manor?.setData?.(state.data);
+  state.manor?.setCompactRefreshFailed?.(false);
   desktop.request("badge", { count: state.data.inbox.pendingCount }).catch(() => {});
 }
 
@@ -873,6 +935,8 @@ async function fetchState({ manual = false } = {}) {
       setConnection("stale", "保留记录", "暂时无法更新庄园记录");
       ui.staleNotice.hidden = false;
       ui.staleMessage.textContent = "暂时无法更新，正在继续等待。";
+      state.manor?.setCompactRefreshFailed?.(true);
+      renderCompactPopover();
     } else {
       setConnection("error", "庄园暂不可用", "暂时无法取得庄园记录");
       ui.staleNotice.hidden = false;
@@ -902,6 +966,9 @@ function setDesktopMode(mode) {
   ui.desktopMode.title = next === "mini" ? "展开完整委托簿" : "收起为迷你庄园";
   ui.desktopMode.setAttribute("aria-label", ui.desktopMode.title);
   ui.desktopMode.replaceChildren(document.createTextNode(next === "mini" ? "↗ " : "↙ "), makeElement("span", "", next === "mini" ? "展开" : "收起"));
+  state.manor?.setCompactMode?.(next === "mini");
+  if (next !== "mini") { state.compactTarget = null; ui.compactPopover.hidden = true; }
+  else renderCompactPopover();
 }
 
 async function requestWindowMode(mode) {
@@ -929,6 +996,12 @@ async function initScene() {
       container: document.querySelector("#manor-scene"),
       onSelect: (selection) => {
         if (!selection) return;
+        if (isMiniMode()) {
+          if (selection.kind === "schedule") { openCompactPopover({ kind: "automation", id: selection.id }); return; }
+          if (selection.kind === "inbox" || selection.id === "inbox") { openCompactPopover({ kind: "inbox" }); return; }
+          if (selection.id === "codex" || selection.filter === "codex") { openCompactPopover({ kind: "codex" }); return; }
+          return;
+        }
         if (selection.kind === "schedule") {
           selectAutomation(selection.id);
           return;
@@ -968,6 +1041,7 @@ async function initScene() {
     });
     state.manor.setTheme?.(state.theme);
     state.manor.setPaused?.(state.animationPaused);
+    state.manor.setCompactMode?.(isMiniMode());
     state.manor.setVisible?.(state.visible && !document.hidden);
     if (state.data) state.manor.setData?.(state.data);
     document.querySelector("#manor-scene").setAttribute("aria-busy", "false");
@@ -983,6 +1057,14 @@ function bindEvents() {
   ui.refresh.addEventListener("click", () => fetchState({ manual: true }));
   ui.theme.addEventListener("click", () => setTheme(state.theme === "day" ? "night" : "day"));
   ui.pause.addEventListener("click", () => setPaused(!state.animationPaused));
+  ui.miniTheme.addEventListener("click", () => setTheme(state.theme === "day" ? "night" : "day"));
+  ui.miniPause.addEventListener("click", () => setPaused(!state.animationPaused));
+  ui.miniExpand.addEventListener("click", () => requestWindowMode("full"));
+  ui.compactClose.addEventListener("click", () => { state.compactTarget = null; ui.compactPopover.hidden = true; });
+  ui.compactItems.addEventListener("click", (event) => {
+    const open = event.target.closest("[data-compact-url]");
+    if (open) requestDesktop("open_url", { url: open.dataset.compactUrl }).catch(() => {});
+  });
   ui.resetView.addEventListener("click", () => state.manor?.resetView?.());
   ui.focusOwner.addEventListener("click", () => state.manor?.focusOwner?.());
   ui.scheduleInbox.addEventListener("click", openScheduleInbox);

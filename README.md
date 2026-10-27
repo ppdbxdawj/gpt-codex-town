@@ -38,6 +38,14 @@ It is a personal, local-first companion. It does not run tasks, send messages, o
 
 *The review inbox keeps reading separate from explicit acceptance.*
 
+### Mini city mode
+
+Mini mode is a full-window 3D town for a compact view of recently readable local work, not a count of an entire account. It keeps only building bubbles and floating expand, theme, and motion controls: the workshop separates confirmed running work from work waiting for you, active automations keep their own named homes, and gifts show pending review. Unknown state is shown separately; disconnected data is marked as awaiting an update, never as zero. Cloud snapshots remain non-real-time. Clicking a building opens a small status card with an original-task link when one is available; it does not automatically open the full review view.
+
+![City-only mini mode](docs/images/mini-city.png)
+
+*City-only mini mode with fictional demo data.*
+
 ## Quick start
 
 **Requirements:** macOS 13+, Apple Silicon, Python 3.9+, Node.js, and Xcode Command Line Tools.
@@ -63,11 +71,11 @@ The project-level `.npmrc` uses the public npm registry. `prepare:vendor` rebuil
 
 ## Verification
 
-The current source build has been verified with 47 Python tests and 6 Node tests:
+The source includes Python and Node test suites:
 
 ```zsh
 python3 -B -m unittest discover -s tests -v
-node --test tests/test_schedule_village.mjs
+node --test tests/test_*.mjs
 ```
 
 ## Roadmap

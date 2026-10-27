@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from '/vendor/OrbitControls.js';
 import { normalizeVillageAutomations, planVillageLots } from './schedule-village.js';
+import { compactAutomationState, compactInboxState, compactTaskState } from './compact-state.js';
 
 // The manor is a view of task state. It never starts or changes an agent task.
 export function createManorScene({ container, onSelect = () => {} }) {
@@ -287,10 +288,42 @@ export function createManorScene({ container, onSelect = () => {} }) {
       if(!home){home=scheduleHome(item,lot);scheduleHomes.set(item.id,home);}else{home.item=item;home.lot=lot;home.g.position.copy(schedulePosition(lot));home.g.userData.title=item.title;}
       home.status=item.phase;home.marker.material=dotMats[item.phase]||dotMats.unknown;
       const unread=item.unreadResultCount||0;home.resultGift.visible=unread>0;
-      home.label.textContent=`${item.title}${unread>0?` · 🎁${unread}`:''}`;
+      home.fullLabel=`${item.title}${unread>0?` · 🎁${unread}`:''}`;
+      home.miniLabel=`${item.title} · ${item.statusText}${unread>0?` · 🎁${unread}`:''}`;
+      home.label.textContent=home.fullLabel;
       home.label.title=`${item.title} · ${item.statusText} · ${item.sourceText}`;home.label.setAttribute('aria-label',`查看定时任务：${item.title}，${item.statusText}，${item.sourceText}${unread>0?`，待看 ${unread} 份`:''}`);
     }
     scheduleLots.clear();for(const [id,lot] of lots)scheduleLots.set(id,lot);
+  }
+
+  function refreshCompactBubbles(refreshFailed=false){
+    const tasks=compactTaskState(data||{}, {refreshFailed});
+    const inbox=compactInboxState(data||{});
+    const plans=new Map(compactAutomationState(data||{}).map(item=>[item.id,item]));
+    const confirmed=(tasks.running||0)+(tasks.waiting||0);
+    codexBuilding.miniLabel=tasks.status==='unavailable'?'Codex\n状态待更新':`Codex 未完成 ${confirmed}\n${tasks.running?'运行 '+tasks.running:''}${tasks.running&&tasks.waiting?' · ':''}${tasks.waiting?'等你 '+tasks.waiting:''}${!confirmed?'当前无已确认进行项':''}${tasks.unknownCount?`\n另 ${tasks.unknownCount} 项未确认`:''}`;
+    inboxAnchor.miniLabel=`礼盒 · 待验收 ${inbox.pending}`;
+    for(const home of scheduleHomes.values()){
+      const plan=plans.get(home.item.id);
+      const status=plan?.status||home.item.statusText||'状态未确认';
+      const compactStatus=status
+        .replace('云端快照 · 暂不可用','云端·待更新')
+        .replace('云端快照 · ','云端·')
+        .replace('正在运行','运行')
+        .replace('等待计划','待计划')
+        .replace('已启用','启用')
+        .replace('状态未确认','待确认');
+      // Lead with the short status: long plan names may ellipsize in mini mode,
+      // while title/ARIA retains both complete values for a click or assistive tech.
+      home.miniLabel=`${compactStatus} · ${home.item.title}`;
+    }
+    for(const l of labels){
+      const show=compactMode&&(l.b.id==='codex'||l.b.id==='inbox'||l.b.item);
+      l.el.classList.toggle('manor-mini-bubble',show);
+      if(show)l.el.textContent=l.b.miniLabel||l.b.title;
+      else if(l.b.item)l.el.textContent=l.b.fullLabel||l.b.item.title;
+      else l.el.textContent=l.b.label||l.b.title;
+    }
   }
 
   // Transport loop: crates only enter it on a newly observed real completion.
@@ -364,7 +397,7 @@ export function createManorScene({ container, onSelect = () => {} }) {
     const g=new THREE.Group();land.add(g);box(g,.52,.4,.42,palette.pink,0,0,0,.09);box(g,.57,.08,.47,palette.cream,0,.21,0,.04);box(g,.08,.45,.46,palette.gold,0,0,0,.02);g.position.copy(railPath.getPointAt(0));g.position.y+=.36;crates.push({g,p:0});
   }
   const dotMats={running:material('#81bba4',{emissive:'#5ed5b9',emissiveIntensity:.45}),waiting:material('#f1c472',{emissive:'#ebad4a',emissiveIntensity:.3}),enabled:material('#98cdb7'),completed:palette.mint,history:material('#b9a2d6'),paused:material('#9a8c9d'),stale:material('#b9a2d6'),failed:material('#dc899b'),interrupted:palette.gold,unknown:palette.purple,idle:palette.mint};
-  let data=null, seen=new Map(), initialized=false, night=false, paused=window.matchMedia('(prefers-reduced-motion: reduce)').matches, disposed=false, logical=0,last=0,raf=0, frames=0, view='manor';
+  let data=null, seen=new Map(), initialized=false, night=false, paused=window.matchMedia('(prefers-reduced-motion: reduce)').matches, disposed=false, logical=0,last=0,raf=0, frames=0, view='manor', compactMode=false, compactRefreshFailed=false, manorZoom=1.12, compactCamera=null;
   let selectedId=null,transition=null,dirty=true;
   let surfaceVisible=true;
   let ownerAsset=null,ownerGroup=null,ownerMixer=null;
@@ -457,7 +490,8 @@ export function createManorScene({ container, onSelect = () => {} }) {
       seen.set(result.id,result.status);
     }
     initialized=true;
-    for(const l of labels)if(!l.b.item){l.el.textContent=l.b.label||l.b.title;l.el.title=l.b.detail||l.b.label||l.b.title;}
+    refreshCompactBubbles(compactRefreshFailed);
+    for(const l of labels)if(!l.b.item){l.el.title=l.b.detail||l.b.label||l.b.title;}
     renderFrame(true);
   }
   function setTheme(theme){
@@ -470,6 +504,20 @@ export function createManorScene({ container, onSelect = () => {} }) {
     renderFrame(true);
   }
   function setPaused(v){paused=!!v;renderFrame(true);}
+  function setCompactMode(next){
+    const enabled=!!next;
+    if(enabled!==compactMode){
+      if(enabled){
+        compactCamera={position:camera.position.clone(),target:controls.target.clone(),zoom:camera.zoom};
+        transition=null;camera.position.copy(home);controls.target.set(0,1,0);camera.zoom=.9;
+      }else if(compactCamera){
+        camera.position.copy(compactCamera.position);controls.target.copy(compactCamera.target);camera.zoom=compactCamera.zoom;compactCamera=null;
+      }else camera.zoom=manorZoom;
+      camera.updateProjectionMatrix();controls.update();
+    }
+    compactMode=enabled;container.dataset.compactMode=compactMode?'true':'false';refreshCompactBubbles(compactRefreshFailed);dirty=true;renderFrame(true);
+  }
+  function setCompactRefreshFailed(next){compactRefreshFailed=!!next;refreshCompactBubbles(compactRefreshFailed);dirty=true;renderFrame(true);}
   function setVisible(v){surfaceVisible=!!v;last=performance.now();if(surfaceVisible){dirty=true;renderFrame(true);}}
   function applyView(nextView,resetCamera=false){
     if(!resetCamera){view='manor';dirty=true;renderFrame(true);return;}
@@ -489,29 +537,45 @@ export function createManorScene({ container, onSelect = () => {} }) {
     const w=container.clientWidth,h=container.clientHeight;
     const visible=[];
     for(const l of labels){
+      const miniEligible=l.b.id==='codex'||l.b.id==='inbox'||l.b.item;
+      if(compactMode&&!miniEligible){l.el.classList.add('is-projected-hidden');continue;}
       l.b.g.getWorldPosition(vector);vector.y+=l.h;vector.project(camera);
       const inView=l.view===view&&l.b.g.visible!==false&&vector.z<1&&vector.x>-.99&&vector.x<.99&&vector.y>-.99&&vector.y<.99;
       const labelId=l.b.id||l.b.item?.id;
       l.el.style.outline=selectedId===labelId?'2px solid #b998cc':'none';
-      if(!inView){l.el.style.display='none';continue;}
+      if(!inView){l.el.classList.add('is-projected-hidden');continue;}
       // Make the element measurable before placing it; its visibility prevents a visible jump.
-      l.el.style.display='block';l.el.style.visibility='hidden';
+      l.el.classList.remove('is-projected-hidden');l.el.style.display='block';l.el.style.visibility='hidden';
       visible.push({l,x:(vector.x+1)*w/2,y:(-vector.y+1)*h/2,id:labelId});
     }
-    const priority=entry=>entry.l.b.item?4:entry.id==='owner'?3:entry.id==='inbox'||entry.id==='warehouse'?2:1;
+    const priority=entry=>compactMode?(entry.id==='codex'?6:entry.id==='inbox'?5:entry.l.b.item?4:1):(entry.l.b.item?4:entry.id==='owner'?3:entry.id==='inbox'||entry.id==='warehouse'?2:1);
     visible.sort((a,b)=>priority(b)-priority(a)||a.y-b.y);
-    const occupied=[];const intersects=(a,b)=>a.x<b.x+b.w+6&&a.x+a.w+6>b.x&&a.y<b.y+b.h+6&&a.y+a.h+6>b.y;
+    const occupied=compactMode?[{x:w-112,y:0,w:112,h:45}]:[];const intersects=(a,b)=>a.x<b.x+b.w+6&&a.x+a.w+6>b.x&&a.y<b.y+b.h+6&&a.y+a.h+6>b.y;
     for(const entry of visible){
-      const {l}=entry, width=l.el.offsetWidth||126,height=l.el.offsetHeight||30;
+      const {l}=entry, width=l.el.offsetWidth||126,labelHeight=l.el.offsetHeight||30;
       const cached=l.offset||[0,0];const options=[cached,[0,0],[0,-34],[72,-12],[-72,-12],[72,26],[-72,26],[0,38],[108,-28],[-108,-28]];
       let placed=null;
       for(const [dx,dy] of options){
         const x=Math.max(width/2+4,Math.min(w-width/2-4,entry.x+dx));
-        const y=Math.max(height+4,Math.min(h-4,entry.y+dy));
-        const rect={x:x-width/2,y:y-height,w:width,h:height};
+        const y=Math.max(labelHeight+4,Math.min(h-4,entry.y+dy));
+        const rect={x:x-width/2,y:y-labelHeight,w:width,h:labelHeight};
         if(!occupied.some(other=>intersects(rect,other))){placed={x,y,rect,offset:[x-entry.x,y-entry.y]};break;}
       }
-      if(!placed){const x=Math.max(width/2+4,Math.min(w-width/2-4,entry.x));const y=Math.max(height+4,Math.min(h-4,entry.y-54-occupied.length*2));placed={x,y,rect:{x:x-width/2,y:y-height,w:width,h:height},offset:[x-entry.x,y-entry.y]};}
+      // Several active courtyards can project into the same small area. For the
+      // compact town, search the canvas for the closest free slot instead of
+      // forcing a last overlapping label at its original projection.
+      if(!placed&&compactMode){
+        let best=null,bestDistance=Infinity;
+        const step=8;
+        for(let y=labelHeight+4;y<=h-4;y+=step)for(let x=width/2+4;x<=w-width/2-4;x+=step){
+          const rect={x:x-width/2,y:y-labelHeight,w:width,h:labelHeight};
+          if(occupied.some(other=>intersects(rect,other)))continue;
+          const distance=(x-entry.x)**2+(y-entry.y)**2;
+          if(distance<bestDistance){best={x,y,rect,offset:[x-entry.x,y-entry.y]};bestDistance=distance;}
+        }
+        placed=best;
+      }
+      if(!placed){const x=Math.max(width/2+4,Math.min(w-width/2-4,entry.x));const y=Math.max(labelHeight+4,Math.min(h-4,entry.y-54-occupied.length*2));placed={x,y,rect:{x:x-width/2,y:y-labelHeight,w:width,h:labelHeight},offset:[x-entry.x,y-entry.y]};}
       l.offset=placed.offset;l.el.style.left=placed.x+'px';l.el.style.top=placed.y+'px';l.el.style.visibility='visible';occupied.push(placed.rect);
     }
   }
@@ -581,5 +645,5 @@ export function createManorScene({ container, onSelect = () => {} }) {
   function pause(v){controls.enableDamping=!v;rawSetPaused(v);}
   function dispose(){disposed=true;cancelAnimationFrame(raf);resizeObserver.disconnect();controls.dispose();renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointerup',pointerUp);ownerMixer?.stopAllAction();if(ownerAsset)ownerMixer?.uncacheRoot(ownerAsset.object);ownerGroup?.removeFromParent();ownerAsset?.dispose?.();const gs=new Set(),ms=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>ms.add(m));}});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose());renderer.dispose();renderer.domElement.remove();labels.forEach(l=>l.el.remove());}
   setTheme('day');resize();raf=requestAnimationFrame(tick);welcomeOwner();
-  return {setData,setTheme,setPaused:pause,setVisible,setView,focusBuilding,focusAutomation,focusOwner,resetView,dispose};
+  return {setData,setTheme,setPaused:pause,setVisible,setCompactMode,setCompactRefreshFailed,setView,focusBuilding,focusAutomation,focusOwner,resetView,dispose};
 }

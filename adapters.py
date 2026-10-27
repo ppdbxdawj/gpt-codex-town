@@ -454,10 +454,13 @@ class LocalStateAdapter:
         current = max(starts, key=self._event_time)
         current_turn = str(current["turn_id"])
         turn_events = [event for event in events if str(event.get("turn_id") or "") == current_turn]
-        terminal_types = {"task_complete", "task_failed", "turn_failed", "turn_aborted", "approval_requested", "approval_required", "permission_requested"}
-        terminals = [event for event in turn_events if event["payload"].get("type") in terminal_types]
-        if terminals:
-            latest = max(terminals, key=self._event_time)
+        final_types = {"task_complete", "task_failed", "turn_failed", "turn_aborted"}
+        finals = [event for event in turn_events if event["payload"].get("type") in final_types]
+        # A completion, failure, or interruption is a definite terminal state
+        # for this turn.  It remains stronger evidence than later incidental
+        # log activity from the same turn.
+        if finals:
+            latest = max(finals, key=self._event_time)
             kind, payload = latest["payload"]["type"], latest["payload"]
             if kind == "task_complete":
                 return "completed", "最近一轮已结束（不代表成果已验收）。", message_text(payload.get("last_agent_message")), events
@@ -465,13 +468,50 @@ class LocalStateAdapter:
                 return "interrupted", "最近一轮已中断。", "", events
             if kind in {"task_failed", "turn_failed"}:
                 return "failed", "最近一轮报告失败。", message_text(payload.get("message") or payload.get("error")), events
-            return "waiting", "最近一轮明确等待审批。", "", events
+        approval_types = {"approval_requested", "approval_required", "permission_requested"}
+        approvals = [(index, event) for index, event in enumerate(turn_events)
+                     if event["payload"].get("type") in approval_types]
+        if approvals:
+            approval_index, approval = max(approvals, key=lambda pair: (self._event_time(pair[1]), pair[0]))
+            # A decision prompt is waiting only until the same turn provides
+            # clear post-approval execution evidence.  Reasoning and token
+            # counters alone do not prove that work resumed.
+            approval_at = self._event_time(approval)
+            continuations = [event for event in turn_events[approval_index + 1:]
+                             if self._event_time(event) >= approval_at and self._is_execution_continuation(event)]
+            if continuations:
+                activity_at = max(self._event_time(event) for event in continuations)
+                if now.timestamp() - activity_at <= 15 * 60:
+                    return "running", "审批后检测到同轮继续执行。", "", events
+                return "unknown", "审批后的执行活动超过 15 分钟，状态未确认。", "", events
+            if now.timestamp() - approval_at <= 15 * 60:
+                return "waiting", "最近一轮明确等待审批。", "", events
+            return "unknown", "最近一轮等待审批超过 15 分钟，状态未确认。", "", events
         activity_at = max(self._event_time(event) for event in turn_events)
         if not current_turn:
             return "unknown", "近期日志没有任务状态事件。", "", events
         if now.timestamp() - activity_at <= 15 * 60:
             return "running", "最近一轮正在运行。", "", events
         return "unknown", "最近一轮超过 15 分钟没有心跳，状态未确认。", "", events
+
+    @staticmethod
+    def _is_execution_continuation(event: dict[str, Any]) -> bool:
+        payload = event.get("payload") or {}
+        event_type = payload.get("type")
+        if event_type in {"custom_tool_call", "custom_tool_call_output", "function_call", "function_call_output"}:
+            return True
+        if event_type != "item_completed":
+            return False
+        # Some writers emit a completed reasoning item.  It is not evidence
+        # that an approval was acted on; accept only recognized public/tool
+        # item classes and never an incomplete or unknown item.
+        item = payload.get("item")
+        if not isinstance(item, dict):
+            return False
+        item_type = "".join(character for character in str(item.get("type") or "").casefold() if character.isalpha())
+        if item_type == "agentmessage":
+            return str(item.get("phase") or "").casefold() == "commentary"
+        return item_type in {"commandexecution", "functioncall", "customtoolcall", "toolcall"}
 
     @staticmethod
     def _event_time(event: dict[str, Any]) -> float:

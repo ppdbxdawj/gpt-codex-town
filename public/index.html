@@ -64,6 +64,15 @@
               <p id="progress-meta" class="progress-meta"></p><ol id="progress-events" class="progress-events"></ol>
               <button id="progress-expand" class="progress-expand" type="button" hidden>展开全部过程</button>
             </section>
+            <div id="compact-city-controls" class="compact-city-controls" aria-label="迷你庄园控制">
+              <button id="mini-theme-button" type="button" title="切换日间与星光夜间" aria-label="切换日间与星光夜间">☾</button>
+              <button id="mini-pause-button" type="button" title="暂停或恢复庄园动画" aria-label="暂停或恢复庄园动画">Ⅱ</button>
+              <button id="mini-expand-button" type="button" title="展开完整委托簿" aria-label="展开完整委托簿">↗</button>
+            </div>
+            <section id="compact-popover" class="compact-popover" aria-live="polite" hidden>
+              <div class="compact-popover-head"><strong id="compact-popover-title">庄园状态</strong><button id="compact-popover-close" type="button" aria-label="关闭状态卡">×</button></div>
+              <p id="compact-popover-copy"></p><div id="compact-popover-items"></div>
+            </section>
             <button id="schedule-inbox-button" class="schedule-inbox-button" type="button">定时收件 · <b id="schedule-inbox-count">0</b></button>
             <div class="scene-controls">
               <button id="reset-view-button" type="button" class="scene-button" title="恢复庄园视角">⌁ 恢复视角</button>
